@@ -76,3 +76,5 @@ Los valores de $WI$ obtenidos por Rosenfeld suelen ser menores o iguales a los o
 Este repositorio emplea diccionarios de adyacencia, garantizando eficiencia $O(E \log V)$ y permitiendo que el cálculo sea escalable para redes de mayor complejidad.
 
 Desarrollado para el análisis topológico de redes de flujo humano.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ZfazrI_9jomW1QYivI9nizVoWvxD-tN4?usp=sharing)
