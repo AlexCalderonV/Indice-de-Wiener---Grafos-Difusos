@@ -54,7 +54,18 @@ Este método calcula distancias directamente sobre el grafo original:
 
 ## 4. Uso del Software 
 
-El código está diseñado para ejecutarse en Jupyter Notebook.Requisitos: pip install numpy networkx matplotlib ipywidgetsEntrada de Datos: El archivo .txt debe seguir este formato:Línea 1: $n$ (número de nodos)Línea 2: Valores $\sigma$ separados por espacioLíneas 3+: Nodo_Origen Nodo_Destino Valor_μ
+El código está diseñado para ejecutarse en Jupyter Notebook.
+
+**Requisitos:** pip install numpy networkx matplotlib ipywidgets
+
+### Entrada de Datos
+El archivo .txt debe seguir este formato:
+
+   I. **Línea 1:** $n$ (número de nodos). 
+
+   II. **Línea 2**: Valores $\sigma$ separados por espacio.
+   
+   III. **Líneas 3+**: Nodo_Origen Nodo_Destino Valor_μ
 
 ## 5. Consideraciones sobre los Resultados
 
