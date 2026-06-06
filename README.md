@@ -58,14 +58,21 @@ El código está diseñado para ejecutarse en Jupyter Notebook.
 
 **Requisitos:** pip install numpy networkx matplotlib ipywidgets
 
-### Entrada de Datos
-El archivo .txt debe seguir este formato:
+###  Información acerca de la lectura de los datos del grafo.
 
-   I. **Línea 1:** $n$ (número de nodos). 
+Los dos algoritmos requieren para su ejecución la información de un grafo difuso almacenado en un archivo de texto plano (.txt), dicho archivo deberá seguir la estructura siguiente:
 
-   II. **Línea 2**: Valores $\sigma$ separados por espacio.
-   
-   III. **Líneas 3+**: Nodo_Origen Nodo_Destino Valor_μ
+*  Línea 1: *n* (número de nodos del grafo). El *primer* nodo del grafo será etiquetado como $V_0$ mientras que el *último* será $V_{n-1}$.
+
+*  Línea 2: Cada uno de los valores de pertenencia de los *n* vértices del grafo, es decir, los valores σ, que deberán estar separados por un espacio en blanco.
+
+* Líneas 3 en adelante: A partir de esta línea se da la información para cada arista del grafo siguiendo la estructura: *Nodo_Origen Nodo_Destino Valor_μ*, es decir, se escribe primero un número entre el cero (primer nodo) y el $n-1$ (último nodo), se deja un espacio en blanco, luego se escribe otro número entre el mismo rango, se deja otro espacio en blanco y finalmente se escribe el valor de dicha arista. 
+
+  * A manera de ejemplo, 1    5    0.4, indica que el vertice $V_1$ (que sería el segundo vértice) está enlazado con el vértice $V_5$ y el valor de la arista es $0.4$.
+
+En el siguiente enlace se pueden ejecutar, en Google Colab, ambos algoritmos: 
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ZfazrI_9jomW1QYivI9nizVoWvxD-tN4?usp=sharing)
 
 ## 5. Consideraciones sobre los Resultados
 
@@ -77,4 +84,4 @@ Este repositorio emplea diccionarios de adyacencia, garantizando eficiencia $O(E
 
 Desarrollado para el análisis topológico de redes de flujo humano.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ZfazrI_9jomW1QYivI9nizVoWvxD-tN4?usp=sharing)
+
