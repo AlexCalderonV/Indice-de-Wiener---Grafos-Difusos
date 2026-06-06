@@ -1,0 +1,263 @@
+import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+import ipywidgets as widgets
+from IPython.display import display, clear_output, Markdown
+
+# ==========================================
+# 1. LÓGICA MATEMÁTICA Y ALGORÍTMICA
+# ==========================================
+
+class GrafoDifuso:
+    def __init__(self, num_nodos):
+        self.n = num_nodos
+        self.sigma = np.ones(num_nodos)
+        self.mu = np.zeros((num_nodos, num_nodos))
+        
+    def fijar_sigma(self, valores):
+        if len(valores) != self.n:
+            raise ValueError(f"Se esperaban {self.n} valores de σ, pero se leyeron {len(valores)}.")
+        self.sigma = np.array(valores)
+        
+    def fijar_arista(self, i, j, valor):
+        limite = min(self.sigma[i], self.sigma[j])
+        if valor > limite:
+            raise ValueError(
+                f"Violación teórica: μ(v{i}, v{j}) = {valor} "
+                f"supera el límite min(σ(v{i}), σ(v{j})) = {limite}"
+            )
+        self.mu[i, j] = valor
+        self.mu[j, i] = valor
+
+def obtener_fuerza_max_min(matriz_adj):
+    n = len(matriz_adj)
+    fuerza = np.copy(matriz_adj)
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                fuerza[i, j] = max(fuerza[i, j], min(fuerza[i, k], fuerza[k, j]))
+    return fuerza
+
+def clasificar_y_filtrar_grafo(grafo):
+    n = grafo.n
+    mu_fuerte = np.zeros((n, n))
+    aristas_delta = []
+    
+    for i in range(n):
+        for j in range(i + 1, n):
+            if grafo.mu[i, j] > 0:
+                adj_sin_uv = np.copy(grafo.mu)
+                adj_sin_uv[i, j] = 0
+                adj_sin_uv[j, i] = 0
+                fuerza_sin_uv = obtener_fuerza_max_min(adj_sin_uv)
+                
+                if grafo.mu[i, j] < fuerza_sin_uv[i, j]:
+                    aristas_delta.append((i, j))
+                else:
+                    mu_fuerte[i, j] = grafo.mu[i, j]
+                    mu_fuerte[j, i] = grafo.mu[i, j]
+    return mu_fuerte, aristas_delta
+
+def calcular_matrices_geodesicas(mu_fuerte):
+    n = len(mu_fuerte)
+    A1 = np.empty((n, n), dtype=object)
+    for i in range(n):
+        for j in range(n):
+            if i == j: 
+                A1[i, j] = (0, 0.0)
+            elif mu_fuerte[i, j] > 0: 
+                A1[i, j] = (1, mu_fuerte[i, j])
+            else: 
+                A1[i, j] = (float('inf'), float('inf'))
+                
+    G_crisp = nx.Graph()
+    G_crisp.add_nodes_from(range(n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            if mu_fuerte[i, j] > 0: 
+                G_crisp.add_edge(i, j)
+                
+    diametro = nx.diameter(G_crisp) if nx.is_connected(G_crisp) and n > 1 else (n - 1 if n > 1 else 1)
+    
+    historial = [A1]
+    A_act = A1
+    
+    for paso in range(2, diametro + 1):
+        A_sig = np.empty((n, n), dtype=object)
+        for i in range(n):
+            for j in range(n):
+                mejor = (float('inf'), float('inf'))
+                for k in range(n):
+                    candidata = (A_act[i, k][0] + A1[k, j][0], A_act[i, k][1] + A1[k, j][1])
+                    if candidata[0] < mejor[0] or (candidata[0] == mejor[0] and candidata[1] < mejor[1]):
+                        mejor = candidata
+                A_sig[i, j] = mejor
+        historial.append(A_sig)
+        A_act = A_sig
+        
+    return historial, diametro
+
+# --- Función rediseñada para mostrar el paso a paso deductivo ---
+def calcular_wiener_final_con_pasos(grafo, matriz_final):
+    n = grafo.n
+    wiener = 0.0
+    pasos_simbolicos = []
+    pasos_numericos = []
+    pasos_productos = []
+    
+    for i in range(n):
+        for j in range(i + 1, n):
+            if matriz_final[i, j][0] != float('inf'):
+                s_i = grafo.sigma[i]
+                s_j = grafo.sigma[j]
+                d_ij = matriz_final[i, j][1]
+                producto = s_i * s_j * d_ij
+                wiener += producto
+                
+                # Construcción estricta para el renderizado matemático
+                pasos_simbolicos.append(f"(\\sigma(v_{{{i}}}) \\cdot \\sigma(v_{{{j}}}) \\cdot d_S(v_{{{i}}}, v_{{{j}}}))")
+                pasos_numericos.append(f"({s_i:.1f} \\cdot {s_j:.1f} \\cdot {d_ij:.2f})")
+                pasos_productos.append(f"{producto:.3f}")
+                
+    eq_simbolica = " + ".join(pasos_simbolicos)
+    eq_numerica = " + ".join(pasos_numericos)
+    eq_productos = " + ".join(pasos_productos)
+    
+    return wiener, eq_simbolica, eq_numerica, eq_productos
+
+# ==========================================
+# 2. INTERFAZ Y PROCESAMIENTO EN JUPYTER
+# ==========================================
+
+def lanzar_aplicacion_archivo():
+    out_resultados = widgets.Output()
+    
+    instrucciones = "## **Cálculo del Índice de Wiener desde Archivo (.txt)**\n\n"
+    instrucciones += "**Estructura estricta del archivo .txt:**\n"
+    instrucciones += "* **Línea 1:** Número de nodos (n)\n"
+    instrucciones += "* **Línea 2:** Valores de sigma separados por espacio\n"
+    instrucciones += "* **Líneas siguientes:** Nodo_Origen Nodo_Destino Valor_mu"
+    
+    display(Markdown(instrucciones))
+    
+    uploader = widgets.FileUpload(
+        accept='.txt',
+        multiple=False,
+        description='Subir grafo.txt',
+        button_style='info'
+    )
+    
+    display(uploader)
+    display(out_resultados)
+    
+    def procesar_archivo(change):
+        with out_resultados:
+            clear_output()
+            if not uploader.value:
+                return
+            
+            try:
+                if isinstance(uploader.value, dict):
+                    nombre_archivo = list(uploader.value.keys())[0]
+                    contenido_bytes = uploader.value[nombre_archivo]['content']
+                else: 
+                    archivo = uploader.value[0]
+                    nombre_archivo = archivo['name']
+                    contenido_bytes = archivo['content']
+                    
+                contenido_texto = bytes(contenido_bytes).decode('utf-8')
+                lineas = [line.strip() for line in contenido_texto.split('\n') if line.strip() and not line.startswith('#')]
+                
+                if not lineas:
+                    raise ValueError("El archivo está vacío o no es válido.")
+                    
+                n = int(lineas[0])
+                sigma_valores = list(map(float, lineas[1].split()))
+                
+                G = GrafoDifuso(n)
+                G.fijar_sigma(sigma_valores)
+                
+                for linea in lineas[2:]:
+                    datos = linea.split()
+                    if len(datos) >= 3:
+                        u, v, peso = int(datos[0]), int(datos[1]), float(datos[2])
+                        G.fijar_arista(u, v, peso)
+                        
+                mu_fuerte, aristas_delta = clasificar_y_filtrar_grafo(G)
+                historial, diametro = calcular_matrices_geodesicas(mu_fuerte)
+                
+                # Ejecución de la nueva función detallada
+                wiener_total, eq_simbolica, eq_numerica, eq_productos = calcular_wiener_final_con_pasos(G, historial[-1])
+                
+                # --- DESPLIEGUE VISUAL ---
+                display(Markdown("---"))
+                display(Markdown(f"### **Análisis Algebraico del archivo: `{nombre_archivo}`**"))
+                display(Markdown(f"**Diámetro del subgrafo fuerte $G'^*$:** {diametro}"))
+                
+                for k, mat in enumerate(historial):
+                    display(Markdown(f"#### Matriz $A_{{{k+1}}}$ *(Saltos, Peso Geodésico)*:"))
+                    lineas_matriz = []
+                    for fila in range(n):
+                        celdas = []
+                        for v_obj in mat[fila]:
+                            if v_obj[0] != float('inf'):
+                                celdas.append(f"({v_obj[0]},{v_obj[1]:.1f})")
+                            else:
+                                celdas.append("(∞,∞)")
+                        fila_str = " | ".join(celdas)
+                        lineas_matriz.append(f"[{fila_str}]")
+                    print("\n".join(lineas_matriz) + "\n")
+                    
+                display(Markdown("---"))
+                display(Markdown("### **Cálculo del Índice de Wiener**"))
+                display(Markdown("Fórmula general:"))
+                display(Markdown("$$WI(G) = \\sum_{u, v \\in \\sigma^*} \\sigma(u)\\sigma(v)d_S(u,v)$$"))
+                display(Markdown("Sustituyendo los pares de vértices válidos:"))
+                display(Markdown(f"$$WI(G) = {eq_simbolica}$$"))
+                display(Markdown("Reemplazando por los valores numéricos correspondientes:"))
+                display(Markdown(f"$$WI(G) = {eq_numerica}$$"))
+                display(Markdown("Calculando los productos parciales:"))
+                display(Markdown(f"$$WI(G) = {eq_productos}$$"))
+                display(Markdown(f"## **Índice de Wiener Final: WI(G) = {wiener_total:.4f}**"))
+                display(Markdown("---"))
+                
+                # --- CONSTRUCCIÓN DEL GRAFO (BUCLES EXPANDIDOS) ---
+                fig, ax = plt.subplots(figsize=(6, 5))
+                G_nx = nx.Graph()
+                for i in range(n): 
+                    G_nx.add_node(i, label=f"v{i},{G.sigma[i]:.1f}")
+                
+                pos = nx.spring_layout(G_nx, seed=42)
+                nx.draw_networkx_nodes(G_nx, pos, node_size=1000, node_color='#D6E4F0', edgecolors='black', ax=ax)
+                nx.draw_networkx_labels(G_nx, pos, labels=nx.get_node_attributes(G_nx, 'label'), font_size=9, font_weight='bold', ax=ax)
+                
+                fuertes = []
+                for i in range(n):
+                    for j in range(i+1, n):
+                        if mu_fuerte[i, j] > 0:
+                            fuertes.append((i, j))
+                            
+                nx.draw_networkx_edges(G_nx, pos, edgelist=fuertes, width=3.0, edge_color='#1F4068', ax=ax)
+                nx.draw_networkx_edges(G_nx, pos, edgelist=aristas_delta, width=2.0, edge_color='#E43F5A', style='dashed', alpha=0.7, ax=ax)
+                
+                etiquetas = {}
+                for i in range(n):
+                    for j in range(i+1, n):
+                        if G.mu[i, j] > 0:
+                            etiquetas[(i, j)] = f"{G.mu[i, j]:.1f}"
+                            
+                nx.draw_networkx_edge_labels(G_nx, pos, edge_labels=etiquetas, font_size=9, ax=ax)
+                
+                plt.title("Estructura del Grafo Difuso (Líneas rojas = Aristas eliminadas)")
+                plt.axis('off')
+                plt.tight_layout()
+                plt.show()
+                
+            except Exception as err:
+                error_str = str(err)
+                display(Markdown(f"### ❌ <span style=\"color:red\">Error procesando los datos: {error_str}</span>"))
+                
+    uploader.observe(procesar_archivo, names='value')
+
+# Ejecutar la UI en la celda
+lanzar_aplicacion_archivo()
