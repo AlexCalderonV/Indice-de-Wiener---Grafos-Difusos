@@ -64,7 +64,7 @@ El código está diseñado para ejecutarse en Jupyter Notebook.
 
 ###  Información acerca de la lectura de los datos del grafo.
 
-Los dos algoritmos requieren para su ejecución la información de un grafo difuso almacenado en un archivo de texto plano (.txt), dicho archivo deberá seguir la estructura siguiente:
+Los algoritmos requieren para su ejecución la información de un grafo difuso almacenado en un archivo de texto plano (.txt), dicho archivo deberá seguir la estructura siguiente:
 
 *  Línea 1: *n* (número de nodos del grafo). El *primer* nodo del grafo será etiquetado como $V_0$ mientras que el *último* será $V_{n-1}$.
 
@@ -74,7 +74,7 @@ Los dos algoritmos requieren para su ejecución la información de un grafo difu
 
   * A manera de ejemplo, 1    5    0.4, indica que el vertice $V_1$ (que sería el segundo vértice) está enlazado con el vértice $V_5$ y el valor de la arista es $0.4$.
 
-En el siguiente enlace se pueden ejecutar, en Google Colab, ambos algoritmos: 
+En el siguiente enlace se pueden ejecutar, en Google Colab, los algoritmos: 
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ZfazrI_9jomW1QYivI9nizVoWvxD-tN4?usp=sharing)
 
