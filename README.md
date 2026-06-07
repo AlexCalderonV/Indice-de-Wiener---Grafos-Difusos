@@ -31,6 +31,10 @@ Este método calcula distancias directamente sobre el grafo original:
 1. **Topología Íntegra:** No elimina ninguna arista.
 2. **Dijkstra Clásico:** Calcula la distancia como la suma mínima de pesos de membresía entre cualquier par de nodos.
 
+### C. Wiener Normalizado
+1. Se define una $\mu$ distancia
+2. Se calcula el índice de Wiener considerando dicha distancia.
+3. Se normaliza el valor encontrado.
 ---
 
 ## 3. Especificaciones Técnicas
