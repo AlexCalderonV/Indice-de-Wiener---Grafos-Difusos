@@ -4,7 +4,7 @@ En este repositorio se encuentran algunos algoritmos para calcular el índice de
 
 # Algoritmos para el Cálculo del Índice de Wiener en Grafos Difusos
 
-Este repositorio contiene la implementación en Python de dos enfoques metodológicos para calcular el Índice de Wiener ($WI$) en grafos difusos $G = (\sigma, \mu)$: el **Algoritmo de Filtrado Estructural** y el **Algoritmo Clásico de Rosenfeld**.
+Este repositorio contiene la implementación en Python de tres enfoques metodológicos para calcular el Índice de Wiener ($WI$) en grafos difusos $G = (\sigma, \mu)$: el **Algoritmo de Filtrado Estructural**, el **Algoritmo Clásico de Rosenfeld** y el **Algoritmo para el índice de Wiener Normalizado** (este último es empleado para analizar redes de inmiración ilegal como en otras tituaciones reales).
 
 ## 1. Contexto Teórico
 
