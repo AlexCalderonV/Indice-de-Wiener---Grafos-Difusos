@@ -1,0 +1,278 @@
+# @title
+import heapq
+import networkx as nx
+import matplotlib.pyplot as plt
+import ipywidgets as widgets
+from IPython.display import display, clear_output, Markdown
+
+# ==========================================
+# 1. ESTRUCTURA DE DATOS ÓPTIMA (DICCIONARIOS)
+# ==========================================
+
+class GrafoDifusoDict:
+    def __init__(self, num_nodos):
+        self.n = num_nodos
+        self.sigma = {}  # {nodo: valor_membresia}
+        # Lista de adyacencia (Diccionario de diccionarios)
+        self.mu = {i: {} for i in range(num_nodos)}
+        
+    def fijar_sigma(self, valores):
+        if len(valores) != self.n:
+            raise ValueError(f"Se esperaban {self.n} valores de sigma, pero se leyeron {len(valores)}.")
+        for i, val in enumerate(valores):
+            self.sigma[i] = val
+            
+    def fijar_arista(self, u, v, valor):
+        limite = min(self.sigma[u], self.sigma[v])
+        if valor > limite:
+            raise ValueError(
+                f"Violación teórica: mu(v{u}, v{v}) = {valor} "
+                f"supera el límite min(sigma(v{u}), sigma(v{v})) = {limite}"
+            )
+        self.mu[u][v] = valor
+        self.mu[v][u] = valor  # Grafo no dirigido
+
+# ==========================================
+# 2. ALGORITMOS DE BÚSQUEDA Y FILTRADO
+# ==========================================
+
+def camino_mas_fuerte(grafo, origen, destino, ignorar_u, ignorar_v):
+    """
+    Encuentra la fuerza del camino más fuerte usando un Dijkstra modificado (Max-Min).
+    Utiliza una cola de prioridad (Max-Heap) simulada con valores negativos.
+    """
+    fuerza_maxima = {i: -1.0 for i in range(grafo.n)}
+    fuerza_maxima[origen] = float('inf')
+    
+    pq = [(-float('inf'), origen)]
+    
+    while pq:
+        fuerza_actual_neg, u = heapq.heappop(pq)
+        fuerza_actual = -fuerza_actual_neg
+        
+        if fuerza_actual < fuerza_maxima[u]:
+            continue
+            
+        if u == destino:
+            return fuerza_actual
+            
+        for v, peso_uv in grafo.mu[u].items():
+            if (u == ignorar_u and v == ignorar_v) or (u == ignorar_v and v == ignorar_u):
+                continue
+                
+            fuerza_minima_en_ruta = min(fuerza_actual, peso_uv)
+            
+            if fuerza_minima_en_ruta > fuerza_maxima[v]:
+                fuerza_maxima[v] = fuerza_minima_en_ruta
+                heapq.heappush(pq, (-fuerza_minima_en_ruta, v))
+                
+    return 0.0
+
+def filtrar_aristas_diccionario(grafo):
+    """
+    Aísla el subgrafo G' eliminando aristas delta. Mantiene los pesos mu originales.
+    """
+    G_prima = {i: {} for i in range(grafo.n)}
+    aristas_delta = []
+    
+    visitadas = set()
+    for u in range(grafo.n):
+        for v, peso in grafo.mu[u].items():
+            arista = tuple(sorted((u, v)))
+            if arista in visitadas:
+                continue
+            visitadas.add(arista)
+            
+            fuerza_alternativa = camino_mas_fuerte(grafo, u, v, u, v)
+            
+            if peso < fuerza_alternativa:
+                aristas_delta.append(arista)
+            else:
+                G_prima[u][v] = peso
+                G_prima[v][u] = peso
+                
+    return G_prima, aristas_delta
+
+def dijkstra_geodesico_efectivo(G_prima, n, origen):
+    """
+    Dijkstra sobre el subgrafo fuerte G'. 
+    Convierte el peso mu en distancia efectiva (d = 1/mu) en tiempo real.
+    """
+    distancias = {i: float('inf') for i in range(n)}
+    distancias[origen] = 0.0
+    
+    pq = [(0.0, origen)]
+    
+    while pq:
+        peso, u = heapq.heappop(pq)
+        
+        if peso > distancias[u]:
+            continue
+            
+        for v, peso_uv in G_prima[u].items():
+            # TRANSFORMACIÓN A DISTANCIA EFECTIVA
+            distancia_efectiva = 1.0 / peso_uv if peso_uv > 0 else float('inf')
+            peso_cand = peso + distancia_efectiva
+            
+            if peso_cand < distancias[v]:
+                distancias[v] = peso_cand
+                heapq.heappush(pq, (peso_cand, v))
+                
+    return distancias
+
+# ==========================================
+# 3. LÓGICA DE CÁLCULO DEDUCTIVO Y NORMALIZACIÓN
+# ==========================================
+
+def calcular_wiener_dijkstra(grafo, G_prima):
+    n = grafo.n
+    wiener = 0.0
+    pasos_simbolicos = []
+    pasos_numericos = []
+    pasos_productos = []
+    num_pares = 0
+    
+    # Calcular las distancias efectivas desde cada nodo en G'
+    matriz_distancias = {}
+    for i in range(n):
+        matriz_distancias[i] = dijkstra_geodesico_efectivo(G_prima, n, i)
+        
+    for i in range(n):
+        for j in range(i + 1, n):
+            d_ij = matriz_distancias[i][j]
+            
+            if d_ij != float('inf'):
+                s_i = grafo.sigma[i]
+                s_j = grafo.sigma[j]
+                producto = s_i * s_j * d_ij
+                wiener += producto
+                num_pares += 1
+                
+                pasos_simbolicos.append(f"(\\sigma(v_{{{i}}}) \\cdot \\sigma(v_{{{j}}}) \\cdot d_S(v_{{{i}}}, v_{{{j}}}))")
+                pasos_numericos.append(f"({s_i:.1f} \\cdot {s_j:.1f} \\cdot {d_ij:.2f})")
+                pasos_productos.append(f"{producto:.3f}")
+                
+    # NORMALIZACIÓN: División por el número de pares conectados
+    wiener_norm = wiener / num_pares if num_pares > 0 else 0.0
+                
+    eq_simbolica = " + ".join(pasos_simbolicos)
+    eq_numerica = " + ".join(pasos_numericos)
+    eq_productos = " + ".join(pasos_productos)
+    
+    return wiener, wiener_norm, eq_simbolica, eq_numerica, eq_productos, matriz_distancias
+
+# ==========================================
+# 4. INTERFAZ Y RENDERIZADO EN JUPYTER
+# ==========================================
+
+def lanzar_dijkstra_wiener():
+    out_resultados = widgets.Output()
+    
+    instrucciones = "## **Cálculo del Índice de Wiener (Aplicación: Filtro + Distancia Efectiva)**"
+    display(Markdown(instrucciones))
+    
+    uploader = widgets.FileUpload(accept='.txt', multiple=False, description='Subir grafo.txt', button_style='info')
+    display(uploader)
+    display(out_resultados)
+    
+    def procesar_archivo(change):
+        with out_resultados:
+            clear_output()
+            if not uploader.value: return
+            
+            try:
+                # Lectura robusta del archivo
+                if isinstance(uploader.value, dict):
+                    nombre_archivo = list(uploader.value.keys())[0]
+                    contenido_bytes = uploader.value[nombre_archivo]['content']
+                else: 
+                    archivo = uploader.value[0]
+                    nombre_archivo = archivo['name']
+                    contenido_bytes = archivo['content']
+                    
+                contenido_texto = bytes(contenido_bytes).decode('utf-8')
+                lineas = [line.strip() for line in contenido_texto.split('\n') if line.strip() and not line.startswith('#')]
+                
+                n = int(lineas[0])
+                sigma_valores = list(map(float, lineas[1].split()))
+                
+                G = GrafoDifusoDict(n)
+                G.fijar_sigma(sigma_valores)
+                
+                aristas_validas = []
+                for linea in lineas[2:]:
+                    datos = linea.split()
+                    if len(datos) >= 3:
+                        u, v, peso = int(datos[0]), int(datos[1]), float(datos[2])
+                        G.fijar_arista(u, v, peso)
+                        aristas_validas.append((u, v, peso))
+                        
+                # 1. Aislar G'
+                G_prima, aristas_delta = filtrar_aristas_diccionario(G)
+                # 2. Calcular usando distancia efectiva 1/mu
+                wiener_total, wiener_norm, eq_simbolica, eq_num, eq_prod, distancias = calcular_wiener_dijkstra(G, G_prima)
+                
+                # Despliegue del reporte
+                display(Markdown(f"### **Archivo Procesado:** `{nombre_archivo}`"))
+                display(Markdown("---"))
+                
+                display(Markdown("### **Resultados del Algoritmo sobre el Subgrafo Fuerte $G'$**"))
+                display(Markdown("Matriz de distancias geodésicas efectivas ($1/\\mu$):"))
+                
+                # Imprimir la tabla de distancias
+                for i in range(n):
+                    fila = []
+                    for j in range(n):
+                        peso = distancias[i][j]
+                        if peso == float('inf'):
+                            fila.append("∞")
+                        else:
+                            fila.append(f"{peso:.2f}")
+                    print(f"De v{i} a -> [{ ' | '.join(fila) }]")
+                
+                display(Markdown("---"))
+                display(Markdown("### **Cálculo Deductivo del Índice de Wiener**"))
+                display(Markdown("Desglose Simbólico:"))
+                display(Markdown(f"$$WI_{{Total}}(G) = {eq_simbolica}$$"))
+                display(Markdown("Sustitución Numérica:"))
+                display(Markdown(f"$$WI_{{Total}}(G) = {eq_num}$$"))
+                display(Markdown("Productos Parciales:"))
+                display(Markdown(f"$$WI_{{Total}}(G) = {eq_prod}$$"))
+                
+                display(Markdown(f"## **Índice de Wiener Total: WI(G) = {wiener_total:.4f}**"))
+                display(Markdown(f"## **Índice Normalizado (Promedio): {wiener_norm:.4f}**"))
+                display(Markdown("---"))
+                
+                # Gráfica del Grafo
+                fig, ax = plt.subplots(figsize=(7, 6))
+                G_nx = nx.Graph()
+                for i in range(n): 
+                    G_nx.add_node(i, label=f"v{i}, {G.sigma[i]:.1f}")
+                
+                pos = nx.spring_layout(G_nx, seed=42)
+                
+                nx.draw_networkx_nodes(G_nx, pos, node_size=1200, node_color='#D6E4F0', edgecolors='black', ax=ax)
+                nx.draw_networkx_labels(G_nx, pos, labels=nx.get_node_attributes(G_nx, 'label'), font_size=10, font_weight='bold', ax=ax)
+                
+                fuertes = [(u, v) for u in G_prima for v in G_prima[u] if u < v]
+                nx.draw_networkx_edges(G_nx, pos, edgelist=fuertes, width=3.0, edge_color='#1F4068', ax=ax)
+                nx.draw_networkx_edges(G_nx, pos, edgelist=aristas_delta, width=2.0, edge_color='#E43F5A', style='dashed', alpha=0.7, ax=ax)
+                
+                etiquetas = {}
+                for u in G.mu:
+                    for v, peso in G.mu[u].items():
+                        if u < v: etiquetas[(u, v)] = f"{peso:.1f}"
+                            
+                nx.draw_networkx_edge_labels(G_nx, pos, edge_labels=etiquetas, font_size=10, ax=ax)
+                
+                plt.title("Grafo Difuso (Líneas rojas = $\\delta$-aristas filtradas)")
+                plt.axis('off')
+                plt.tight_layout()
+                plt.show()
+                
+            except Exception as err:
+                display(Markdown(f"### ❌ Error: {str(err)}"))
+                
+    uploader.observe(procesar_archivo, names='value')
+
+lanzar_dijkstra_wiener()
